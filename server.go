@@ -34,6 +34,9 @@ var (
 	ErrCommandNotAllowed = errors.New("command not allowed")
 )
 
+// New type for command interception
+type CommandInterceptor func(*pb.Command) (*pb.Command, error)
+
 // A Server executes a whitelist of commands when called by clients.
 type Server interface {
 	// Start the gRPC server, non-blocking.
@@ -75,6 +78,18 @@ type ServerConfig struct {
 	// Use TLSFiles.TLSConfig() to load TLS files and configure for server and
 	// client verification.
 	TLS *tls.Config
+
+	// New field for command interception
+	Interceptor CommandInterceptor
+}
+
+// Internal implementation of pb.RCEAgentServer interface.
+type server struct {
+	cfg ServerConfig
+	// --
+	repo        cmd.Repo     // running commands
+	grpcServer  *grpc.Server // gRPC server instance of this agent
+	interceptor CommandInterceptor
 }
 
 func NewServerWithConfig(cfg ServerConfig) Server {
@@ -82,9 +97,9 @@ func NewServerWithConfig(cfg ServerConfig) Server {
 	log.SetFlags(log.Ldate | log.Lmicroseconds | log.Lshortfile | log.LUTC)
 
 	s := &server{
-		cfg: cfg,
-		// --
-		repo: cmd.NewRepo(),
+		cfg:         cfg,
+		repo:        cmd.NewRepo(),
+		interceptor: cfg.Interceptor,
 	}
 
 	// Create a gRPC server and register this agent a implementing the
@@ -99,14 +114,6 @@ func NewServerWithConfig(cfg ServerConfig) Server {
 	s.grpcServer = grpcServer
 
 	return s
-}
-
-// Internal implementation of pb.RCEAgentServer interface.
-type server struct {
-	cfg ServerConfig
-	// --
-	repo       cmd.Repo     // running commands
-	grpcServer *grpc.Server // gRPC server instance of this agent
 }
 
 // NewServer makes a new Server that listens on laddr and runs the whitelist
@@ -167,6 +174,16 @@ func (s *server) StopServer() error {
 func (s *server) Start(ctx context.Context, c *pb.Command) (*pb.ID, error) {
 	id := &pb.ID{} // @todo we return this on error, but should be "return nil, <err>"
 
+	// Apply the interceptor if it exists
+	if s.interceptor != nil {
+		interceptedCommand, err := s.interceptor(c)
+		if err != nil {
+			log.Printf("Command interception failed: %v", err)
+			return id, grpc.Errorf(codes.Internal, "command interception failed: %v", err)
+		}
+		c = interceptedCommand
+	}
+
 	var rceCmd *cmd.Cmd // from AllowedCommands or an arbitrary if AllowAnyCommand
 	var path string     // for logging below
 	if s.cfg.AllowedCommands != nil {
@@ -203,6 +220,9 @@ func (s *server) Start(ctx context.Context, c *pb.Command) (*pb.ID, error) {
 	id.ID = rceCmd.Id
 	return id, nil
 }
+
+// Remaining methods (Wait, GetStatus, Stop, Running) remain unchanged
+// ...
 
 func (s *server) Wait(ctx context.Context, id *pb.ID) (*pb.Status, error) {
 	log.Printf("cmd=%s: wait", id.ID)
