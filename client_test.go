@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/go-test/deep"
-	"github.com/square/rce-agent"
-	"github.com/square/rce-agent/pb"
+	"github.com/cowsecurity/custom-rce-agent"
+	"github.com/cowsecurity/custom-rce-agent/pb"
 )
 
 func TestClientExitZero(t *testing.T) {

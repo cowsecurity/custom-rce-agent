@@ -12,7 +12,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/square/rce-agent/pb"
+	"github.com/cowsecurity/custom-rce-agent/pb"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

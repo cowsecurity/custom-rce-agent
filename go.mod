@@ -1,4 +1,4 @@
-module github.com/square/rce-agent
+module github.com/cowsecurity/custom-rce-agent
 
 go 1.20
 

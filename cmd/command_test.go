@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/square/rce-agent/cmd"
+	"github.com/cowsecurity/custom-rce-agent/cmd"
 )
 
 var err error

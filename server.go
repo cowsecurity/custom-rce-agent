@@ -8,8 +8,8 @@ import (
 	"log"
 	"net"
 
-	"github.com/square/rce-agent/cmd"
-	pb "github.com/square/rce-agent/pb"
+	"github.com/cowsecurity/custom-rce-agent/cmd"
+	pb "github.com/cowsecurity/custom-rce-agent/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

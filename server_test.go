@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/square/rce-agent"
-	"github.com/square/rce-agent/cmd"
-	"github.com/square/rce-agent/pb"
+	"github.com/cowsecurity/custom-rce-agent"
+	"github.com/cowsecurity/custom-rce-agent/cmd"
+	"github.com/cowsecurity/custom-rce-agent/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

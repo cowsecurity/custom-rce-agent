@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/square/rce-agent"
-	"github.com/square/rce-agent/pb"
+	"github.com/cowsecurity/custom-rce-agent"
+	"github.com/cowsecurity/custom-rce-agent/pb"
 )
 
 var (
