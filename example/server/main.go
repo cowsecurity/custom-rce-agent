@@ -46,19 +46,6 @@ func main() {
 	flag.Parse()
 
 	var tlsConfig *tls.Config
-	var err error
-
-	if !flagDisableSecurity {
-		tlsFiles := rce.TLSFiles{
-			CACert: flagTLSCA,
-			Cert:   flagTLSCert,
-			Key:    flagTLSKey,
-		}
-		tlsConfig, err = tlsFiles.TLSConfig()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 
 	interceptor := func(c *pb.Command) (*pb.Command, error) {
 		fullCmd := c.Name
