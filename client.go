@@ -38,6 +38,8 @@ var (
 	KeepaliveTimeout = time.Duration(20) * time.Second
 )
 
+const MAX_MESSAGE_SIZE = 1024 * 1024 * 100
+
 // A Client calls a remote agent (server) to execute commands.
 type Client interface {
 	// Connect to a remote agent.
@@ -110,6 +112,7 @@ func (c *client) Open(host, port string) error {
 			Time:    KeepaliveTime,
 			Timeout: KeepaliveTimeout,
 		}),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(MAX_MESSAGE_SIZE)),
 	)
 	if err != nil {
 		return err
