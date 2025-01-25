@@ -3,7 +3,7 @@ module github.com/cowsecurity/custom-rce-agent
 go 1.20
 
 require (
-	github.com/go-cmd/cmd v1.4.3
+	github.com/cowsecurity/cmd v0.0.0-20250125185136-0a039a54b29b
 	github.com/go-test/deep v1.1.1
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang/protobuf v1.5.3

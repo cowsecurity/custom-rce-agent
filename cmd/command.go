@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	gocmd "github.com/go-cmd/cmd"
+	gocmd "github.com/cowsecurity/cmd"
 	"github.com/gofrs/uuid"
 	"gopkg.in/yaml.v2"
 )
@@ -32,7 +32,16 @@ type Cmd struct {
 
 // NewCmd makes a new Cmd with the given Spec and args, and assigns it an ID.
 func NewCmd(s Spec, args []string) *Cmd {
-	cmd := gocmd.NewCmd(s.Path(), args...)
+	// Increasing buffer to 1 MB while new command creation
+	cmdOptions := gocmd.Options{
+		Streaming:      false,
+		Buffered:       true,
+		CombinedOutput: false,
+		LineBufferSize: 1048576,
+	}
+
+	cmd := gocmd.NewCmdOptions(cmdOptions, s.Path(), args...)
+
 	return &Cmd{
 		Id:   id(),
 		Name: s.Name,
