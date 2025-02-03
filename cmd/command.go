@@ -37,7 +37,7 @@ func NewCmd(s Spec, args []string) *Cmd {
 		Streaming:      false,
 		Buffered:       true,
 		CombinedOutput: false,
-		LineBufferSize: 1048576,
+		LineBufferSize: 10485760,
 	}
 
 	cmd := gocmd.NewCmdOptions(cmdOptions, s.Path(), args...)
