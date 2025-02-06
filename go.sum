@@ -1,5 +1,5 @@
-github.com/cowsecurity/cmd v0.0.0-20250125185136-0a039a54b29b h1:ERuAYgovpDwuaZbaBIMMY64/pCRdVTfAUKkEGVr5hkg=
-github.com/cowsecurity/cmd v0.0.0-20250125185136-0a039a54b29b/go.mod h1:ORVT/s1hfYn/PcJsujdMTopqLSfxqf7sU4jExCvKBYE=
+github.com/cowsecurity/cmd v1.0.0 h1:Cfkb+NCuGuA62lYDi9ozy4b68YbP80OgCb1i+TJQQX0=
+github.com/cowsecurity/cmd v1.0.0/go.mod h1:ORVT/s1hfYn/PcJsujdMTopqLSfxqf7sU4jExCvKBYE=
 github.com/go-test/deep v1.1.1 h1:0r/53hagsehfO4bzD2Pgr/+RgHqhmf+k1Bpse2cTu1U=
 github.com/go-test/deep v1.1.1/go.mod h1:5C2ZWiW0ErCdrYzpqxLbTX7MG14M9iiw8DgHncVwcsE=
 github.com/gofrs/uuid v4.4.0+incompatible h1:3qXRTX8/NbyulANqlc0lchS1gqAVxRgsuW1YrTJupqA=
