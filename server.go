@@ -4,9 +4,13 @@ package rce
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/cowsecurity/custom-rce-agent/cmd"
 	pb "github.com/cowsecurity/custom-rce-agent/pb"
@@ -32,7 +36,24 @@ var (
 	// before starting the internal gRPC server. If this error occurs, there is a bug
 	// in ServerConfig validation code.
 	ErrCommandNotAllowed = errors.New("command not allowed")
+
+	// ErrInvalidOrgID is returned when org validation fails
+	ErrInvalidOrgID = errors.New("invalid organization ID")
 )
+
+// VallumFlowConfig represents the configuration structure expected from the Lambda
+type VallumFlowConfig struct {
+	OrgID            string    `json:"orgId"`
+	ControlPlanePort int       `json:"controlPlanePort"`
+	TLSConfig        TLSConfig `json:"tlsConfig"`
+}
+
+// TLSConfig represents the TLS configuration from the Lambda
+type TLSConfig struct {
+	ServerCertFile   string `json:"serverCertFile"`   // server-chain.crt (leaf + intermediate)
+	ServerKeyFile    string `json:"serverKeyFile"`    // server.key
+	ClientCACertFile string `json:"clientCACertFile"` // rootCA.crt (root CA only)
+}
 
 // New type for command interception
 type CommandInterceptor func(*pb.Command) (*pb.Command, error)
@@ -79,14 +100,59 @@ type ServerConfig struct {
 	// client verification.
 	TLS *tls.Config
 
+	// OrgID specifies the organization ID for certificate validation
+	OrgID string
+
 	// New field for command interception
 	Interceptor CommandInterceptor
 }
 
+// LoadConfigFromVallumFlow loads server configuration from the VallumFlow config file created by the Lambda function
+func LoadConfigFromVallumFlow(configPath string, allowedCommands cmd.Runnable) (*ServerConfig, error) {
+	// Read the org ID from the file created by Lambda
+	orgIDBytes, err := ioutil.ReadFile("/etc/vallumflow-org-id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read org ID file: %v", err)
+	}
+	orgID := strings.TrimSpace(string(orgIDBytes))
+
+	configBytes, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %v", configPath, err)
+	}
+
+	var vallumConfig VallumFlowConfig
+	if err := json.Unmarshal(configBytes, &vallumConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse config file %s: %v", configPath, err)
+	}
+
+	if vallumConfig.OrgID != orgID {
+		return nil, fmt.Errorf("config org ID %s does not match system org ID %s", vallumConfig.OrgID, orgID)
+	}
+
+	tlsFiles := TLSFiles{
+		CACert: vallumConfig.TLSConfig.ClientCACertFile, // rootCA.crt
+		Cert:   vallumConfig.TLSConfig.ServerCertFile,   // server-chain.crt
+		Key:    vallumConfig.TLSConfig.ServerKeyFile,    // server.key
+		OrgID:  vallumConfig.OrgID,                      // for validation
+	}
+
+	tlsConfig, err := tlsFiles.TLSConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS config: %v", err)
+	}
+
+	return &ServerConfig{
+		Addr:            fmt.Sprintf("0.0.0.0:%d", vallumConfig.ControlPlanePort),
+		AllowedCommands: allowedCommands,
+		TLS:             tlsConfig,
+		OrgID:           vallumConfig.OrgID,
+	}, nil
+}
+
 // Internal implementation of pb.RCEAgentServer interface.
 type server struct {
-	cfg ServerConfig
-	// --
+	cfg         ServerConfig
 	repo        cmd.Repo     // running commands
 	grpcServer  *grpc.Server // gRPC server instance of this agent
 	interceptor CommandInterceptor
@@ -220,9 +286,6 @@ func (s *server) Start(ctx context.Context, c *pb.Command) (*pb.ID, error) {
 	id.ID = rceCmd.Id
 	return id, nil
 }
-
-// Remaining methods (Wait, GetStatus, Stop, Running) remain unchanged
-// ...
 
 func (s *server) Wait(ctx context.Context, id *pb.ID) (*pb.Status, error) {
 	log.Printf("cmd=%s: wait", id.ID)

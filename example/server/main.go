@@ -10,15 +10,17 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/cowsecurity/custom-rce-agent"
+	rce "github.com/cowsecurity/custom-rce-agent"
 	pb "github.com/cowsecurity/custom-rce-agent/pb"
 )
 
 var (
-	flagTLSCert         string
-	flagTLSKey          string
-	flagTLSCA           string
-	flagAddr            string
+	flagTLSCert       string
+	flagTLSKey        string
+	flagTLSCA         string
+	flagAddr          string
+	flagConfig        string
+	flagUseVallumFlow bool
 )
 
 func init() {
@@ -26,25 +28,13 @@ func init() {
 	flag.StringVar(&flagTLSKey, "tls-key", "", "TLS key file")
 	flag.StringVar(&flagTLSCA, "tls-ca", "", "TLS certificate authority")
 	flag.StringVar(&flagAddr, "addr", "127.0.0.1:5501", "Address and port to listen on")
-}
-
-func parseChainedCommand(fullCmd string) [][]string {
-	pipedCmds := strings.Split(fullCmd, ";;;")
-	parsedCmds := make([][]string, len(pipedCmds))
-
-	for i, cmd := range pipedCmds {
-		parts := strings.Fields(strings.TrimSpace(cmd))
-		if len(parts) > 0 {
-			parsedCmds[i] = parts
-		}
-	}
-
-	return parsedCmds
+	flag.StringVar(&flagConfig, "config", "/etc/vallumflow/config.json", "VallumFlow configuration file")
+	flag.BoolVar(&flagUseVallumFlow, "vallumflow", false, "Use VallumFlow configuration from Lambda")
 }
 
 func main() {
 	flag.Parse()
-
+	var serverConfig rce.ServerConfig
 	var tlsConfig *tls.Config
 
 	interceptor := func(c *pb.Command) (*pb.Command, error) {
@@ -53,29 +43,68 @@ func main() {
 			fullCmd += " " + strings.Join(c.Arguments, " ")
 		}
 
-		chainedCmds := parseChainedCommand(fullCmd)
-
-		reconstructedCmd := ""
-		for i, cmd := range chainedCmds {
-			reconstructedCmd += strings.Join(cmd, " ")
-			if i < len(chainedCmds)-1 {
-				reconstructedCmd += " && "
-			}
-		}
-
 		return &pb.Command{
 			Name:      "bash",
-			Arguments: []string{"-c", reconstructedCmd},
+			Arguments: []string{"-c", fullCmd},
 		}, nil
 	}
 
-	srv := rce.NewServerWithConfig(rce.ServerConfig{
-		Addr:            flagAddr,
-		TLS:             tlsConfig,
-		AllowAnyCommand: true,
-		DisableSecurity: true,
-		Interceptor:     interceptor,
-	})
+	useVallumFlow := false
+	if flagUseVallumFlow || (flagTLSCert == "" && flagTLSKey == "" && flagTLSCA == "") {
+		if _, err := os.Stat(flagConfig); err == nil {
+			log.Printf("Loading VallumFlow configuration from %s", flagConfig)
+
+			cfg, err := rce.LoadConfigFromVallumFlow(flagConfig, nil)
+			if err != nil {
+				log.Printf("Failed to load VallumFlow config: %v, falling back to legacy mode", err)
+			} else {
+				serverConfig = rce.ServerConfig{
+					Addr:            cfg.Addr,
+					TLS:             cfg.TLS,
+					OrgID:           cfg.OrgID,
+					AllowAnyCommand: true,
+					DisableSecurity: cfg.TLS == nil,
+					Interceptor:     interceptor,
+				}
+
+				if flagAddr != "127.0.0.1:5501" {
+					serverConfig.Addr = flagAddr
+				}
+
+				log.Printf("Server configured for org: %s with intermediate CA support", cfg.OrgID)
+				useVallumFlow = true
+			}
+		} else {
+			log.Printf("VallumFlow config file not found: %s, using legacy mode", flagConfig)
+		}
+	}
+
+	if !useVallumFlow {
+		log.Println("Using legacy TLS configuration")
+
+		if flagTLSCert != "" && flagTLSKey != "" && flagTLSCA != "" {
+			tlsFiles := rce.TLSFiles{
+				CACert: flagTLSCA,
+				Cert:   flagTLSCert,
+				Key:    flagTLSKey,
+			}
+			var err error
+			tlsConfig, err = tlsFiles.TLSConfig()
+			if err != nil {
+				log.Fatalf("Failed to create TLS config: %v", err)
+			}
+		}
+
+		serverConfig = rce.ServerConfig{
+			Addr:            flagAddr,
+			TLS:             tlsConfig,
+			AllowAnyCommand: true,
+			DisableSecurity: tlsConfig == nil,
+			Interceptor:     interceptor,
+		}
+	}
+
+	srv := rce.NewServerWithConfig(serverConfig)
 
 	if err := srv.StartServer(); err != nil {
 		log.Fatalf("Error starting server: %s\n", err)
