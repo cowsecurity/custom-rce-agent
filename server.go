@@ -130,11 +130,12 @@ func LoadConfigFromVallumFlow(configPath string, allowedCommands cmd.Runnable) (
 		return nil, fmt.Errorf("config org ID %s does not match system org ID %s", vallumConfig.OrgID, orgID)
 	}
 
-	tlsFiles := TLSFiles{
-		CACert: vallumConfig.TLSConfig.ClientCACertFile, // rootCA.crt
-		Cert:   vallumConfig.TLSConfig.ServerCertFile,   // server-chain.crt
-		Key:    vallumConfig.TLSConfig.ServerKeyFile,    // server.key
-		OrgID:  vallumConfig.OrgID,                      // for validation
+	tlsFiles := TLSData{
+		CACert:       vallumConfig.TLSConfig.ClientCACertFile, // rootCA.crt
+		Cert:         vallumConfig.TLSConfig.ServerCertFile,   // server-chain.crt
+		Key:          vallumConfig.TLSConfig.ServerKeyFile,    // server.key
+		OrgID:        vallumConfig.OrgID,
+		IsPEMContent: false, // for validation
 	}
 
 	tlsConfig, err := tlsFiles.TLSConfig()
