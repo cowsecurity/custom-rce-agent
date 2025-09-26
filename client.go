@@ -92,10 +92,6 @@ func (c *client) Open(host, port string) error {
 		opt = grpc.WithInsecure()
 	} else {
 		creds := credentials.NewTLS(c.tlsConfig)
-		err := creds.OverrideServerName(host)
-		if err != nil {
-			return err
-		}
 		opt = grpc.WithTransportCredentials(creds)
 	}
 	conn, err := grpc.Dial(
